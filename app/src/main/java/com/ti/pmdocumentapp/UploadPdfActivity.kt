@@ -8,13 +8,16 @@ import android.net.Uri
 import android.os.Bundle
 import android.provider.OpenableColumns
 import android.util.Log
+import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import com.ti.pmdocumentapp.databinding.ActivityUploadPdfBinding
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.RequestBody.Companion.asRequestBody
+import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
+import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 
 class UploadPdfActivity : AppCompatActivity() {
@@ -88,7 +91,17 @@ class UploadPdfActivity : AppCompatActivity() {
                 }
             }
 
-            val client = OkHttpClient()
+            runOnUiThread {
+                binding.progressBar.visibility = View.VISIBLE
+                binding.buttonUploadPdf.isEnabled = false
+            }
+
+            val client = OkHttpClient.Builder()
+                .connectTimeout(0, TimeUnit.MILLISECONDS)
+                .readTimeout(0, TimeUnit.MILLISECONDS)
+                .writeTimeout(0, TimeUnit.MILLISECONDS)
+                .build()
+
             val requestBody = MultipartBody.Builder()
                 .setType(MultipartBody.FORM)
                 .addFormDataPart(
@@ -105,12 +118,18 @@ class UploadPdfActivity : AppCompatActivity() {
             thread {
                 try {
                     val response = client.newCall(request).execute()
+                    runOnUiThread {
+                        binding.progressBar.visibility = View.GONE
+                        binding.buttonUploadPdf.isEnabled = true
+                    }
                     if (response.isSuccessful) {
-                        val responseBody = response.body?.string() ?: "No response body"
+                        val responseBody = response.body?.string() ?: "{}"
+                        val jsonResponse = JSONObject(responseBody)
+                        val data = jsonResponse.optString("data", "No data available")
 
                         val intent = Intent(this, UploadResponseActivity::class.java).apply {
-                            putExtra("response_message", "File uploaded successfully")
-                            putExtra("response_details", responseBody)
+                            putExtra("response_message", "File processed successfully")
+                            putExtra("response_details", data)
                         }
 
                         runOnUiThread {
@@ -130,6 +149,11 @@ class UploadPdfActivity : AppCompatActivity() {
                     }
                 } catch (e: Exception) {
                     Log.e("UploadPdfActivity", "Error uploading file", e)
+
+                    runOnUiThread {
+                        binding.progressBar.visibility = View.GONE
+                        binding.buttonUploadPdf.isEnabled = true
+                    }
 
                     val intent = Intent(this, UploadResponseActivity::class.java).apply {
                         putExtra("response_message", "Error uploading file")
