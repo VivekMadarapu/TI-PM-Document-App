@@ -26,10 +26,16 @@ class MainActivity : AppCompatActivity() {
 
         setSupportActionBar(binding.appBarMain.toolbar)
 
-        binding.appBarMain.fab.setOnClickListener {
+        binding.appBarMain.uploadButton.setOnClickListener {
             val intent = Intent(this, UploadPdfActivity::class.java)
             startActivity(intent)
         }
+
+        binding.appBarMain.transcribeButton.setOnClickListener() {
+            val intent = Intent(this, SpeechTranscribeActivity::class.java)
+            startActivity(intent)
+        }
+
         val drawerLayout: DrawerLayout = binding.drawerLayout
         val navView: NavigationView = binding.navView
         val navController = findNavController(R.id.nav_host_fragment_content_main)
