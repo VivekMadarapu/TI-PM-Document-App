@@ -24,19 +24,47 @@
         android:textSize="16sp" />
 
     <TextView
-        android:id="@+id/textViewTranscribedText"
-        android:layout_width="373dp"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:text="Transcribed text will appear here"
-        android:textSize="18sp" />
-
-    <TextView
         android:id="@+id/textViewCurrentText"
         android:layout_width="373dp"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
         android:textSize="18sp" />
 
+    <Button
+        android:id="@+id/buttonTakePicture"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Take Picture"
+        android:layout_gravity="center"
+        android:layout_marginTop="16dp" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginTop="16dp">
+        <LinearLayout
+            android:id="@+id/linearLayoutCapturedPhotos"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+        </LinearLayout>
+    </ScrollView>
+
+    <Button
+        android:id="@+id/buttonUndoTranscription"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Undo"
+        android:layout_gravity="center"
+        android:layout_marginTop="16dp" />
+
+    <Button
+        android:id="@+id/buttonSavePdf"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Save PDF"
+        android:layout_gravity="center"
+        android:layout_marginTop="16dp" />
 
 </LinearLayout>

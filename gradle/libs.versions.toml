@@ -2,6 +2,8 @@
 activityKtx = "1.9.3"
 agp = "8.7.2"
 converterGson = "2.9.0"
+itext7Core = "7.2.0"
+itext7CoreVersion = "7.2.2"
 kotlin = "1.9.24"
 coreKtx = "1.10.1"
 junit = "4.13.2"
@@ -21,6 +23,8 @@ runner = "1.5.2"
 androidx-activity-ktx = { module = "androidx.activity:activity-ktx", version.ref = "activityKtx" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 converter-gson = { module = "com.squareup.retrofit2:converter-gson", version.ref = "converterGson" }
+itext7-core = { module = "com.itextpdf:itext7-core", version.ref = "itext7Core" }
+itext7-core-v722 = { module = "com.itextpdf:itext7-core", version.ref = "itext7CoreVersion" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }

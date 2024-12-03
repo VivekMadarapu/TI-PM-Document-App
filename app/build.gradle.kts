@@ -55,6 +55,7 @@ dependencies {
     implementation(libs.retrofit)
     implementation(libs.converter.gson)
     implementation(libs.okhttp)
+    implementation(libs.itext7.core.v722)
     implementation(libs.logging.interceptor)
     implementation(libs.androidx.activity.ktx)
     implementation(libs.androidx.runner)
