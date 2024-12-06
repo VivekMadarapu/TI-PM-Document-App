@@ -6,6 +6,7 @@ import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.graphics.drawable.BitmapDrawable
 import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
@@ -29,8 +30,15 @@ import com.itextpdf.layout.Document
 import com.itextpdf.layout.element.Image
 import com.itextpdf.layout.element.Paragraph
 import com.ti.pmdocumentapp.databinding.ActivitySpeechTranscribeBinding
+import org.apache.poi.util.Units
+import org.apache.poi.xwpf.usermodel.XWPFDocument
+import org.apache.poi.xwpf.usermodel.XWPFParagraph
+import org.apache.poi.xwpf.usermodel.XWPFRun
 import java.io.File
+import java.io.FileInputStream
 import java.io.FileOutputStream
+import java.io.FileWriter
+import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -45,6 +53,7 @@ class SpeechTranscribeActivity : AppCompatActivity() {
     private val REQUEST_IMAGE_CAPTURE = 102
     private lateinit var speechRecognizer: SpeechRecognizer
     private val transcribedItems = mutableListOf<View>()
+    private val imageViewToBitmapMap = mutableMapOf<ImageView, Bitmap>()
     private val TAG = "SpeechTranscribeActivity"
 
     private val takePictureLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -83,6 +92,14 @@ class SpeechTranscribeActivity : AppCompatActivity() {
 
         binding.buttonSavePdf.setOnClickListener {
             savePdfDocument()
+        }
+
+        binding.buttonSaveDocx.setOnClickListener {
+            saveWordDocument()
+        }
+
+        binding.buttonSaveTxt.setOnClickListener {
+            saveTxtFile()
         }
 
         initializeSpeechRecognizer()
@@ -213,6 +230,7 @@ class SpeechTranscribeActivity : AppCompatActivity() {
         }
         binding.linearLayoutCapturedPhotos.addView(imageView)
         transcribedItems.add(imageView)
+        imageViewToBitmapMap[imageView] = image
     }
 
     private fun undoLastItem() {
@@ -266,12 +284,11 @@ class SpeechTranscribeActivity : AppCompatActivity() {
                         document.add(paragraph)
                     }
                     is ImageView -> {
-                        val drawable = view.drawable
-                        if (drawable != null) {
-                            val bitmap = (drawable as android.graphics.drawable.BitmapDrawable).bitmap
-                            val imageFile = File.createTempFile("temp_image", ".png", cacheDir)
+                        val bitmap = imageViewToBitmapMap[view]
+                        bitmap?.let {
+                            val imageFile = File.createTempFile("image_${System.currentTimeMillis()}", ".png", cacheDir)
                             FileOutputStream(imageFile).use { outputStream ->
-                                bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream)
+                                it.compress(Bitmap.CompressFormat.PNG, 100, outputStream)
                             }
 
                             val imageData = ImageDataFactory.create(imageFile.absolutePath)
@@ -289,6 +306,94 @@ class SpeechTranscribeActivity : AppCompatActivity() {
         }
 
         Toast.makeText(this, "PDF saved to ${pdfPath.absolutePath}", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun saveWordDocument() {
+        val documentsDirectory = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
+        val docxFile = File(documentsDirectory, "transcription_${System.currentTimeMillis()}.docx")
+
+        val document = XWPFDocument()
+        try {
+            val header = """
+                Module:
+                Specification Name: 
+                Description: 
+            """.trimIndent()
+            val headerParagraph = document.createParagraph()
+            val headerRun = headerParagraph.createRun()
+            headerRun.setText(header)
+            for (i in 0 until transcribedItems.size) {
+                when (val view = transcribedItems[i]) {
+                    is TextView -> {
+                        val paragraph: XWPFParagraph = document.createParagraph()
+                        val run: XWPFRun = paragraph.createRun()
+                        run.setText(view.text.toString())
+                    }
+                    is ImageView -> {
+                        val bitmap = imageViewToBitmapMap[view]
+                        bitmap?.let {
+                            val imageFile = File(cacheDir, "image_${System.currentTimeMillis()}.png")
+                            FileOutputStream(imageFile).use { fos ->
+                                it.compress(Bitmap.CompressFormat.PNG, 100, fos)
+                            }
+
+                            val imageInputStream = FileInputStream(imageFile)
+                            val pictureType = XWPFDocument.PICTURE_TYPE_JPEG
+                            val pictureParagraph = document.createParagraph()
+                            val run: XWPFRun = pictureParagraph.createRun()
+                            run.addPicture(
+                                imageInputStream,
+                                pictureType,
+                                imageFile.name,
+                                Units.toEMU(400.0),
+                                Units.toEMU(400.0)
+                            )
+                        }
+                    }
+                }
+            }
+
+            FileOutputStream(docxFile).use { outputStream ->
+                document.write(outputStream)
+            }
+            Toast.makeText(this, "DOCX file saved to ${docxFile.absolutePath}", Toast.LENGTH_LONG).show()
+        } catch (e: IOException) {
+            e.printStackTrace()
+            Toast.makeText(this, "Failed to save DOCX file", Toast.LENGTH_SHORT).show()
+        } finally {
+            try {
+                document.close()
+            } catch (e: IOException) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    private fun saveTxtFile() {
+        val documentsDirectory = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
+        val txtFile = File(documentsDirectory, "transcription_${System.currentTimeMillis()}.txt")
+
+        try {
+            FileWriter(txtFile).use { writer ->
+                val header = """
+                    Module:
+                    Specification Name: 
+                    Description: 
+                """.trimIndent()
+                writer.write(header + "\n\n")
+                for (i in 0 until transcribedItems.size) {
+                    when (val view = transcribedItems[i]) {
+                        is TextView -> {
+                            writer.write(view.text.toString() + "\n")
+                        }
+                    }
+                }
+            }
+            Toast.makeText(this, "TXT file saved to ${txtFile.absolutePath}", Toast.LENGTH_LONG).show()
+        } catch (e: IOException) {
+            e.printStackTrace()
+            Toast.makeText(this, "Failed to save TXT file", Toast.LENGTH_SHORT).show()
+        }
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
