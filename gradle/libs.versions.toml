@@ -1,6 +1,7 @@
 [versions]
 activityKtx = "1.9.3"
 agp = "8.7.2"
+androidPdfViewer = "3.2.0-beta.1"
 converterGson = "2.9.0"
 itext7Core = "7.2.0"
 itext7CoreVersion = "7.2.2"
@@ -14,14 +15,17 @@ material = "1.10.0"
 constraintlayout = "2.1.4"
 lifecycleLivedataKtx = "2.6.1"
 lifecycleViewmodelKtx = "2.6.1"
+mupdfViewer = "1.21.0"
 navigationFragmentKtx = "2.6.0"
 navigationUiKtx = "2.6.0"
 okhttp = "4.9.0"
 runner = "1.5.2"
 
 [libraries]
+android-pdf-viewer = { module = "com.github.barteksc:android-pdf-viewer", version.ref = "androidPdfViewer" }
 androidx-activity-ktx = { module = "androidx.activity:activity-ktx", version.ref = "activityKtx" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+barteksc-android-pdf-viewer = { module = "com.github.barteksc:android-pdf-viewer" }
 converter-gson = { module = "com.squareup.retrofit2:converter-gson", version.ref = "converterGson" }
 itext7-core = { module = "com.itextpdf:itext7-core", version.ref = "itext7Core" }
 itext7-core-v722 = { module = "com.itextpdf:itext7-core", version.ref = "itext7CoreVersion" }
@@ -36,6 +40,7 @@ androidx-lifecycle-livedata-ktx = { group = "androidx.lifecycle", name = "lifecy
 androidx-lifecycle-viewmodel-ktx = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-ktx", version.ref = "lifecycleViewmodelKtx" }
 androidx-navigation-fragment-ktx = { group = "androidx.navigation", name = "navigation-fragment-ktx", version.ref = "navigationFragmentKtx" }
 androidx-navigation-ui-ktx = { group = "androidx.navigation", name = "navigation-ui-ktx", version.ref = "navigationUiKtx" }
+mupdf-viewer = { module = "com.github.ArtifexSoftware:MuPDF-Viewer", version.ref = "mupdfViewer" }
 okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
 retrofit = { module = "com.squareup.retrofit2:retrofit", version.ref = "converterGson" }
 androidx-runner = { group = "androidx.test", name = "runner", version.ref = "runner" }

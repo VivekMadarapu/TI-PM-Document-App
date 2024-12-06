@@ -250,9 +250,9 @@ class SpeechTranscribeActivity : AppCompatActivity() {
 
         try {
             val header = """
-                Module: Implant
-                Specification Name: IR-PP500MC
-                Description: E500HP PM Procedures
+                Module:
+                Specification Name: 
+                Description: 
             """.trimIndent()
             document.add(Paragraph(header).setBold())
             document.add(Paragraph("\n"))

@@ -6,29 +6,12 @@
     android:orientation="vertical"
     android:padding="16dp">
 
-    <Button
-        android:id="@+id/buttonViewPdf"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="View PDF"
-        android:layout_gravity="center"
-        android:layout_marginTop="16dp" />
-
-    <Button
-        android:id="@+id/buttonViewUploadedPdf"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="View Uploaded PDF"
-        android:layout_gravity="center"
-        android:layout_marginTop="16dp" />
-
     <TextView
         android:id="@+id/textViewStatus"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
         android:text=""
-        android:layout_gravity="center"
         android:textSize="16sp" />
 
 </LinearLayout>

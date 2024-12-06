@@ -18,6 +18,7 @@ import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 import java.util.concurrent.TimeUnit
+import java.util.zip.ZipInputStream
 import kotlin.concurrent.thread
 
 class UploadPdfActivity : AppCompatActivity() {
@@ -111,7 +112,7 @@ class UploadPdfActivity : AppCompatActivity() {
                 .build()
 
             val request = Request.Builder()
-                .url("http://10.0.2.2:5000/upload")
+                .url("http://192.168.2.102:5000/process")
                 .post(requestBody)
                 .build()
 
@@ -123,17 +124,41 @@ class UploadPdfActivity : AppCompatActivity() {
                         binding.buttonUploadPdf.isEnabled = true
                     }
                     if (response.isSuccessful) {
-                        val responseBody = response.body?.string() ?: "{}"
-                        val jsonResponse = JSONObject(responseBody)
-                        val data = jsonResponse.optString("data", "No data available")
+                        val responseBody = response.body?.byteStream()
 
-                        val intent = Intent(this, UploadResponseActivity::class.java).apply {
-                            putExtra("response_message", "File processed successfully")
-                            putExtra("response_details", data)
-                        }
+                        if (responseBody != null) {
+                            val zipInputStream = ZipInputStream(responseBody)
+                            var zipEntry = zipInputStream.nextEntry
+                            val receivedFiles = mutableListOf<File>()
 
-                        runOnUiThread {
-                            startActivity(intent)
+                            while (zipEntry != null) {
+                                val receivedFile = File(cacheDir, zipEntry.name)
+                                FileOutputStream(receivedFile).use { outputStream ->
+                                    val buffer = ByteArray(1024)
+                                    var bytesRead: Int
+                                    while (zipInputStream.read(buffer).also { bytesRead = it } != -1) {
+                                        outputStream.write(buffer, 0, bytesRead)
+                                    }
+                                }
+                                receivedFiles.add(receivedFile)
+                                zipEntry = zipInputStream.nextEntry
+                            }
+                            zipInputStream.closeEntry()
+                            zipInputStream.close()
+
+                            if (receivedFiles.size == 3) {
+                                val intent = Intent(this, ViewPdfActivity::class.java).apply {
+                                    putExtra("pdfReport", receivedFiles[0].absolutePath)
+                                    putExtra("newPdf", receivedFiles[1].absolutePath)
+                                    putExtra("checkSheet", receivedFiles[2].absolutePath)
+                                }
+
+                                runOnUiThread {
+                                    startActivity(intent)
+                                }
+                            } else {
+                                Log.e("UploadPdfActivity", "Received data does not contain three PDF files.")
+                            }
                         }
                     } else {
                         Log.e("UploadPdfActivity", "File upload failed: ${response.message}")
