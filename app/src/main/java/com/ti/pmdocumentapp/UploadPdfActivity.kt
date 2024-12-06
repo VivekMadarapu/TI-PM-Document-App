@@ -9,6 +9,7 @@ import android.os.Bundle
 import android.provider.OpenableColumns
 import android.util.Log
 import android.view.View
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.ti.pmdocumentapp.databinding.ActivityUploadPdfBinding
 import okhttp3.*
@@ -25,12 +26,28 @@ class UploadPdfActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityUploadPdfBinding
     private var selectedFileUri: Uri? = null
+    private val PREFS_NAME = "AppPreferences"
+    private val KEY_SERVER_ADDRESS = "ServerAddress"
     private val pickPDFFile = 1
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityUploadPdfBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        val sharedPreferences = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+
+        binding.editTextIpAddress.setText(sharedPreferences.getString(KEY_SERVER_ADDRESS, "127.0.0.1:5000"))
+
+        binding.buttonSaveIp.setOnClickListener {
+            val ipAddress = binding.editTextIpAddress.text.toString()
+            if (ipAddress.isNotBlank()) {
+                sharedPreferences.edit().putString(KEY_SERVER_ADDRESS, ipAddress).apply()
+                Toast.makeText(this, "IP Address saved!", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this, "Please enter a valid IP address", Toast.LENGTH_SHORT).show()
+            }
+        }
 
         binding.buttonSelectPdf.setOnClickListener {
             val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
@@ -111,8 +128,11 @@ class UploadPdfActivity : AppCompatActivity() {
                 )
                 .build()
 
+            val sharedPreferences = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+            val serverAddress = sharedPreferences.getString(KEY_SERVER_ADDRESS, "127.0.0.1:5000")
+
             val request = Request.Builder()
-                .url("http://192.168.2.102:5000/process")
+                .url("http://$serverAddress/process")
                 .post(requestBody)
                 .build()
 

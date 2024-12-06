@@ -5,6 +5,19 @@
     android:orientation="vertical"
     android:padding="16dp">
 
+    <EditText
+        android:id="@+id/editTextIpAddress"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:hint="Server IP Address"
+        android:inputType="textUri" />
+
+    <Button
+        android:id="@+id/buttonSaveIp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Save IP" />
+
     <Button
         android:id="@+id/button_select_pdf"
         android:layout_width="wrap_content"

@@ -1,13 +1,13 @@
-package com.ti.pmdocumentapp.ui.home
+package com.ti.pmdocumentapp.ui.documents
 
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 
-class HomeViewModel : ViewModel() {
+class DocumentsViewModel : ViewModel() {
 
     private val _text = MutableLiveData<String>().apply {
-        value = "This is home Fragment"
+        value = ""
     }
     val text: LiveData<String> = _text
 }

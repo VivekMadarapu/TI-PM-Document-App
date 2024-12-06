@@ -24,6 +24,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            resValue("xml", "network_security_config", "network_security_config_debug.xml")
         }
     }
 
