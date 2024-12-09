@@ -47,6 +47,7 @@ class SpeechTranscribeActivity : AppCompatActivity() {
     private var fullTranscription: String = ""
     private var currentSection: Int = 1
     private var currentSubsection: Int? = null
+    private var continuousSpeechRecognition = false
 
     private lateinit var binding: ActivitySpeechTranscribeBinding
     private val PERMISSIONS_REQUEST_RECORD_AUDIO = 101
@@ -75,6 +76,16 @@ class SpeechTranscribeActivity : AppCompatActivity() {
                 startSpeechRecognition()
             } else {
                 checkAndRequestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO))
+            }
+        }
+
+        binding.buttonLoopTranscription.setOnClickListener {
+            if (continuousSpeechRecognition) {
+                binding.buttonLoopTranscription.backgroundTintList = ContextCompat.getColorStateList(this, R.color.purple_500)
+                continuousSpeechRecognition = false
+            } else {
+                binding.buttonLoopTranscription.backgroundTintList = ContextCompat.getColorStateList(this, R.color.teal_200)
+                continuousSpeechRecognition = true
             }
         }
 
@@ -121,16 +132,29 @@ class SpeechTranscribeActivity : AppCompatActivity() {
             val errorMessage = getErrorText(error)
             Log.e(TAG, "Recognition Error: $errorMessage")
             binding.textViewTranscriptionStatus.text = "Error occurred: $errorMessage. Please try again."
-            binding.buttonStartTranscription.isEnabled = true
+            if (continuousSpeechRecognition) {
+                startSpeechRecognition()
+            } else {
+                binding.buttonStartTranscription.isEnabled = true
+            }
         }
 
         override fun onResults(results: Bundle?) {
             val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
             val transcribedText = matches?.get(0)?.let { processTranscribedText(it) } ?: ""
-            if (transcribedText.isNotBlank()) addTextToLayout(transcribedText)
+            if (transcribedText.split(" ")[0] != "action:") {
+                addTextToLayout(transcribedText)
+                binding.textViewTranscriptionStatus.text = "Transcription Recorded"
+            }
+            else {
+                binding.textViewTranscriptionStatus.text = "Action Executed: ${transcribedText.split(":")[1].trim()}"
+            }
             binding.textViewCurrentText.text = ""
-            binding.textViewTranscriptionStatus.text = "Transcription complete"
-            binding.buttonStartTranscription.isEnabled = true
+            if (continuousSpeechRecognition) {
+                startSpeechRecognition()
+            } else {
+                binding.buttonStartTranscription.isEnabled = true
+            }
         }
 
         override fun onPartialResults(partialResults: Bundle?) {
@@ -162,12 +186,36 @@ class SpeechTranscribeActivity : AppCompatActivity() {
             text.contains("create subsection", ignoreCase = true) -> {
                 currentSubsection = 1
                 currentSection--
-                ""
+                "action: create subsection"
             }
             text.contains("complete subsection", ignoreCase = true) -> {
                 currentSubsection = null
                 currentSection++
-                ""
+                "action: complete subsection"
+            }
+            text.contains("undo", ignoreCase = true) -> {
+                undoLastItem()
+                "action: undo"
+            }
+            text.contains("capture image", ignoreCase = true) -> {
+                if (checkPermission(Manifest.permission.CAMERA)) {
+                    dispatchTakePictureIntent()
+                } else {
+                    checkAndRequestPermissions(arrayOf(Manifest.permission.CAMERA))
+                }
+                "action: capture image"
+            }
+            text.contains("save pdf", ignoreCase = true) -> {
+                savePdfDocument()
+                "action: save pdf"
+            }
+            text.contains("save word", ignoreCase = true) -> {
+                saveWordDocument()
+                "action: save word"
+            }
+            text.contains("save text", ignoreCase = true) -> {
+                saveTxtFile()
+                "action: save text"
             }
             currentSubsection != null -> {
                 val subsectionNumber = currentSubsection!!
