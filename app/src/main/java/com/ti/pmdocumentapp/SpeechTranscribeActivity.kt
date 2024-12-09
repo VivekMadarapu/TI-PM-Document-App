@@ -6,7 +6,10 @@ import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
-import android.graphics.drawable.BitmapDrawable
+import android.graphics.BitmapFactory
+import android.graphics.Matrix
+import androidx.exifinterface.media.ExifInterface
+import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
@@ -24,7 +27,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import com.itextpdf.io.image.ImageDataFactory
+import com.itextpdf.io.source.ByteArrayOutputStream
 import com.itextpdf.kernel.pdf.PdfWriter
 import com.itextpdf.layout.Document
 import com.itextpdf.layout.element.Image
@@ -34,8 +39,8 @@ import org.apache.poi.util.Units
 import org.apache.poi.xwpf.usermodel.XWPFDocument
 import org.apache.poi.xwpf.usermodel.XWPFParagraph
 import org.apache.poi.xwpf.usermodel.XWPFRun
+import java.io.ByteArrayInputStream
 import java.io.File
-import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.FileWriter
 import java.io.IOException
@@ -54,15 +59,9 @@ class SpeechTranscribeActivity : AppCompatActivity() {
     private val REQUEST_IMAGE_CAPTURE = 102
     private lateinit var speechRecognizer: SpeechRecognizer
     private val transcribedItems = mutableListOf<View>()
-    private val imageViewToBitmapMap = mutableMapOf<ImageView, Bitmap>()
+    private val imageViewToFileMap = mutableMapOf<ImageView, Uri>()
+    private var photoUri: Uri = Uri.EMPTY
     private val TAG = "SpeechTranscribeActivity"
-
-    private val takePictureLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            val imageBitmap = result.data?.extras?.get("data") as? Bitmap
-            imageBitmap?.let { addImageToLayout(it) }
-        }
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -241,12 +240,99 @@ class SpeechTranscribeActivity : AppCompatActivity() {
         }
     }
 
+    private val takePictureLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val imageView = ImageView(this).apply {
+                var bitmap = correctImageOrientation(photoUri)
+                if (bitmap == null)
+                    bitmap = BitmapFactory.decodeStream(contentResolver.openInputStream(photoUri))
+
+                setImageBitmap(bitmap)
+                scaleType = ImageView.ScaleType.MATRIX
+                val matrix = Matrix()
+
+                val targetWidth = 400f
+                val targetHeight = 400f
+
+                val scaleX = targetWidth / bitmap!!.width
+                val scaleY = targetHeight / bitmap.height
+
+                val scale = minOf(scaleX, scaleY)
+
+                matrix.setScale(scale, scale)
+
+                val dx = (targetWidth - bitmap.width * scale) / 2
+                val dy = (targetHeight - bitmap.height * scale) / 2
+                matrix.postTranslate(dx, dy)
+
+                imageMatrix = matrix
+                layoutParams = LinearLayout.LayoutParams(
+                    targetWidth.toInt(),
+                    targetHeight.toInt()
+                ).apply {
+                    setMargins(16, 16, 0, 16)
+                }
+            }
+
+            val currentUri = photoUri
+            binding.linearLayoutCapturedPhotos.addView(imageView)
+            transcribedItems.add(imageView)
+            imageViewToFileMap[imageView] = currentUri
+        }
+    }
+
+    private fun createImageFile(): File {
+        val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+        val storageDir = getExternalFilesDir(Environment.DIRECTORY_PICTURES)
+        return File.createTempFile("JPEG_${timestamp}_", ".jpg", storageDir).apply {
+            photoUri = FileProvider.getUriForFile(this@SpeechTranscribeActivity, "${packageName}.provider", this)
+        }
+    }
+
     private fun dispatchTakePictureIntent() {
-        val takePictureIntent = Intent(MediaStore.ACTION_IMAGE_CAPTURE_SECURE)
+        val takePictureIntent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
         try {
+            createImageFile()
+            takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoUri)
             takePictureLauncher.launch(takePictureIntent)
         } catch (e: ActivityNotFoundException) {
             Toast.makeText(this, "Camera not available", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun correctImageOrientation(uri: Uri): Bitmap? {
+        return try {
+            contentResolver.openInputStream(uri)?.use { inputStream ->
+                val bitmap = BitmapFactory.decodeStream(inputStream) // Decode to Bitmap
+
+                contentResolver.openInputStream(uri)?.use { exifStream ->
+                    val exif = ExifInterface(exifStream)
+                    val orientation = exif.getAttributeInt(
+                        ExifInterface.TAG_ORIENTATION,
+                        ExifInterface.ORIENTATION_NORMAL
+                    )
+
+                    val rotationAngle = when (orientation) {
+                        ExifInterface.ORIENTATION_ROTATE_90 -> 90f
+                        ExifInterface.ORIENTATION_ROTATE_180 -> 180f
+                        ExifInterface.ORIENTATION_ROTATE_270 -> 270f
+                        else -> 0f
+                    }
+
+                    if (rotationAngle != 0f) {
+                        val matrix = Matrix()
+                        matrix.postRotate(rotationAngle)
+                        Bitmap.createBitmap(
+                            bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true
+                        )
+                    } else {
+                        bitmap
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
         }
     }
 
@@ -263,22 +349,6 @@ class SpeechTranscribeActivity : AppCompatActivity() {
         binding.linearLayoutCapturedPhotos.addView(editText)
         transcribedItems.add(editText)
         fullTranscription += "\n$text"
-    }
-
-    private fun addImageToLayout(image: Bitmap) {
-        val imageView = ImageView(this).apply {
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
-                setMargins(0, 16, 0, 16)
-            }
-            setImageBitmap(image)
-            scaleType = ImageView.ScaleType.CENTER_INSIDE
-        }
-        binding.linearLayoutCapturedPhotos.addView(imageView)
-        transcribedItems.add(imageView)
-        imageViewToBitmapMap[imageView] = image
     }
 
     private fun undoLastItem() {
@@ -332,17 +402,22 @@ class SpeechTranscribeActivity : AppCompatActivity() {
                         document.add(paragraph)
                     }
                     is ImageView -> {
-                        val bitmap = imageViewToBitmapMap[view]
-                        bitmap?.let {
-                            val imageFile = File.createTempFile("image_${System.currentTimeMillis()}", ".png", cacheDir)
-                            FileOutputStream(imageFile).use { outputStream ->
-                                it.compress(Bitmap.CompressFormat.PNG, 100, outputStream)
-                            }
+                        val uri = imageViewToFileMap[view]
+                        uri?.let {
+                            val correctedBitmap = correctImageOrientation(uri)
+                            correctedBitmap?.let { bitmap ->
+                                val stream = ByteArrayOutputStream()
+                                bitmap.compress(Bitmap.CompressFormat.JPEG, 100, stream)
+                                val imageData = ImageDataFactory.create(stream.toByteArray())
+                                val image = Image(imageData)
 
-                            val imageData = ImageDataFactory.create(imageFile.absolutePath)
-                            val image = Image(imageData)
-                            document.add(image)
+                                image.scaleToFit(400f, 400f)
+                                image.setMargins(10f, 10f, 10f, 10f)
+
+                                document.add(image)
+                            }
                         }
+                        Log.d("ImageViewMapping", "View: $view -> Uri: ${imageViewToFileMap[view]}")
                     }
                 }
             }
@@ -378,24 +453,23 @@ class SpeechTranscribeActivity : AppCompatActivity() {
                         run.setText(view.text.toString())
                     }
                     is ImageView -> {
-                        val bitmap = imageViewToBitmapMap[view]
-                        bitmap?.let {
-                            val imageFile = File(cacheDir, "image_${System.currentTimeMillis()}.png")
-                            FileOutputStream(imageFile).use { fos ->
-                                it.compress(Bitmap.CompressFormat.PNG, 100, fos)
+                        val uri = imageViewToFileMap[view]
+                        uri?.let {
+                            val correctedBitmap = correctImageOrientation(uri)
+                            correctedBitmap?.let { bitmap ->
+                                val stream = ByteArrayOutputStream()
+                                bitmap.compress(Bitmap.CompressFormat.JPEG, 100, stream)
+                                val imageData = stream.toByteArray()
+                                val imageInputStream = ByteArrayInputStream(imageData)
+                                val run = document.createParagraph().createRun()
+                                run.addPicture(
+                                    imageInputStream,
+                                    XWPFDocument.PICTURE_TYPE_JPEG,
+                                    uri.lastPathSegment,
+                                    Units.toEMU(400.0),
+                                    Units.toEMU(400.0)
+                                )
                             }
-
-                            val imageInputStream = FileInputStream(imageFile)
-                            val pictureType = XWPFDocument.PICTURE_TYPE_JPEG
-                            val pictureParagraph = document.createParagraph()
-                            val run: XWPFRun = pictureParagraph.createRun()
-                            run.addPicture(
-                                imageInputStream,
-                                pictureType,
-                                imageFile.name,
-                                Units.toEMU(400.0),
-                                Units.toEMU(400.0)
-                            )
                         }
                     }
                 }
