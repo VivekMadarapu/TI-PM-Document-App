@@ -1,0 +1,71 @@
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp">
+
+    <ja.burhanrashid52.photoeditor.PhotoEditorView
+        android:id="@+id/photoEditorView"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_above="@+id/toolBar"
+        android:layout_alignParentTop="true"
+        android:layout_weight="1" />
+
+    <LinearLayout
+        android:id="@+id/toolBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:orientation="horizontal"
+        android:background="@color/purple_500"
+        android:padding="8dp">
+
+        <ImageButton
+            android:id="@+id/btnBrush"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@drawable/brush"
+            android:contentDescription="Brush"
+            android:background="?attr/selectableItemBackground" />
+
+        <ImageButton
+            android:id="@+id/btnEraser"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@drawable/eraser"
+            android:contentDescription="Eraser"
+            android:background="?attr/selectableItemBackground" />
+
+        <ImageButton
+            android:id="@+id/btnText"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@drawable/text_fields"
+            android:contentDescription="Text"
+            android:background="?attr/selectableItemBackground" />
+
+        <ImageButton
+            android:id="@+id/btnUndo"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@drawable/undo"
+            android:contentDescription="Undo"
+            android:background="?attr/selectableItemBackground" />
+
+        <ImageButton
+            android:id="@+id/btnRedo"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@drawable/redo"
+            android:contentDescription="Redo"
+            android:background="?attr/selectableItemBackground" />
+
+        <ImageButton
+            android:id="@+id/btnSave"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@drawable/save"
+            android:contentDescription="Save"
+            android:background="?attr/selectableItemBackground" />
+    </LinearLayout>
+</RelativeLayout>

@@ -8,7 +8,6 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
-import androidx.exifinterface.media.ExifInterface
 import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
@@ -28,6 +27,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import androidx.exifinterface.media.ExifInterface
 import com.itextpdf.io.image.ImageDataFactory
 import com.itextpdf.io.source.ByteArrayOutputStream
 import com.itextpdf.kernel.pdf.PdfWriter
@@ -46,6 +46,7 @@ import java.io.FileWriter
 import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.*
+
 
 class SpeechTranscribeActivity : AppCompatActivity() {
 
@@ -240,8 +241,26 @@ class SpeechTranscribeActivity : AppCompatActivity() {
         }
     }
 
+    private val editImageLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == RESULT_OK) {
+            val editedUri = result.data?.getParcelableExtra<Uri>("editedImageUri")
+            if (editedUri != null) {
+                photoUri = editedUri
+            }
+        }
+    }
+
+    private fun launchImageEditor(uri: Uri) {
+        val editIntent = Intent(this, ImageEditorActivity::class.java).apply {
+            putExtra("imageUri", photoUri)
+        }
+        editImageLauncher.launch(editIntent)
+    }
+
     private val takePictureLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
+            launchImageEditor(photoUri)
+
             val imageView = ImageView(this).apply {
                 var bitmap = correctImageOrientation(photoUri)
                 if (bitmap == null)

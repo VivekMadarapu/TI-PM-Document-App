@@ -60,6 +60,8 @@ dependencies {
     implementation(libs.itext7.core.v722)
     implementation(libs.poi)
     implementation(libs.poi.ooxml)
+    implementation(libs.photoeditor)
+    implementation(libs.yukuku.ambilwarna)
     implementation(libs.commons.collections4)
     implementation(libs.logging.interceptor)
     implementation(libs.androidx.activity.ktx)
