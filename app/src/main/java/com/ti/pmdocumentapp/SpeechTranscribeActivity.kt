@@ -3,8 +3,11 @@ package com.ti.pmdocumentapp
 import android.Manifest
 import android.app.Activity
 import android.content.ActivityNotFoundException
+import android.content.ContentResolver
+import android.content.ContentValues
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.database.Cursor
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
@@ -22,12 +25,14 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import android.widget.VideoView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.exifinterface.media.ExifInterface
+import com.google.gson.Gson
 import com.itextpdf.io.image.ImageDataFactory
 import com.itextpdf.io.source.ByteArrayOutputStream
 import com.itextpdf.kernel.pdf.PdfWriter
@@ -39,6 +44,7 @@ import org.apache.poi.util.Units
 import org.apache.poi.xwpf.usermodel.XWPFDocument
 import org.apache.poi.xwpf.usermodel.XWPFParagraph
 import org.apache.poi.xwpf.usermodel.XWPFRun
+import org.bouncycastle.crypto.params.Blake3Parameters.context
 import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.FileOutputStream
@@ -62,14 +68,30 @@ class SpeechTranscribeActivity : AppCompatActivity() {
     private val transcribedItems = mutableListOf<View>()
     private val imageViewToFileMap = mutableMapOf<ImageView, Uri>()
     private var photoUri: Uri = Uri.EMPTY
+    private var videoUri: Uri = Uri.EMPTY
     private val TAG = "SpeechTranscribeActivity"
+
+    data class TranscriptionItem(
+        val type: String,
+        val content: String
+    )
+
+    data class TranscriptionState(
+        val items: List<TranscriptionItem>
+    )
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivitySpeechTranscribeBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        loadTranscriptionState()
+
         checkAndRequestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO))
+
+        binding.buttonSaveTranscription.setOnClickListener {
+            saveTranscriptionState()
+        }
 
         binding.buttonStartTranscription.setOnClickListener {
             if (checkPermission(Manifest.permission.RECORD_AUDIO)) {
@@ -92,6 +114,14 @@ class SpeechTranscribeActivity : AppCompatActivity() {
         binding.buttonTakePicture.setOnClickListener {
             if (checkPermission(Manifest.permission.CAMERA)) {
                 dispatchTakePictureIntent()
+            } else {
+                checkAndRequestPermissions(arrayOf(Manifest.permission.CAMERA))
+            }
+        }
+
+        binding.buttonTakeVideo.setOnClickListener {
+            if(checkPermission(Manifest.permission.CAMERA)) {
+                openVideoCapture()
             } else {
                 checkAndRequestPermissions(arrayOf(Manifest.permission.CAMERA))
             }
@@ -241,6 +271,13 @@ class SpeechTranscribeActivity : AppCompatActivity() {
         }
     }
 
+    private val takePictureLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            launchImageEditor(photoUri)
+            addImageToLayout(photoUri)
+        }
+    }
+
     private val editImageLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == RESULT_OK) {
             val editedUri = result.data?.getParcelableExtra<Uri>("editedImageUri")
@@ -250,54 +287,39 @@ class SpeechTranscribeActivity : AppCompatActivity() {
         }
     }
 
+    private val videoCaptureLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            if (videoUri != Uri.EMPTY){
+                Toast.makeText(this, "Video saved to: $videoUri", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this, "Failed to save video", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun openVideoCapture() {
+        val videoCaptureIntent = Intent(MediaStore.ACTION_VIDEO_CAPTURE)
+        try {
+            val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+            val contentValues = ContentValues().apply {
+                put(MediaStore.MediaColumns.DISPLAY_NAME, "video_${timestamp}.mp4")
+                put(MediaStore.MediaColumns.MIME_TYPE, "video/mp4")
+                put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/PMDocumentVideos")
+            }
+            videoUri = contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, contentValues)!!
+            videoCaptureIntent.putExtra(MediaStore.EXTRA_OUTPUT, videoUri)
+            videoCaptureIntent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            videoCaptureLauncher.launch(videoCaptureIntent)
+        } catch (e: ActivityNotFoundException) {
+            Toast.makeText(this, "No camera app available", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     private fun launchImageEditor(uri: Uri) {
         val editIntent = Intent(this, ImageEditorActivity::class.java).apply {
             putExtra("imageUri", photoUri)
         }
         editImageLauncher.launch(editIntent)
-    }
-
-    private val takePictureLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            launchImageEditor(photoUri)
-
-            val imageView = ImageView(this).apply {
-                var bitmap = correctImageOrientation(photoUri)
-                if (bitmap == null)
-                    bitmap = BitmapFactory.decodeStream(contentResolver.openInputStream(photoUri))
-
-                setImageBitmap(bitmap)
-                scaleType = ImageView.ScaleType.MATRIX
-                val matrix = Matrix()
-
-                val targetWidth = 400f
-                val targetHeight = 400f
-
-                val scaleX = targetWidth / bitmap!!.width
-                val scaleY = targetHeight / bitmap.height
-
-                val scale = minOf(scaleX, scaleY)
-
-                matrix.setScale(scale, scale)
-
-                val dx = (targetWidth - bitmap.width * scale) / 2
-                val dy = (targetHeight - bitmap.height * scale) / 2
-                matrix.postTranslate(dx, dy)
-
-                imageMatrix = matrix
-                layoutParams = LinearLayout.LayoutParams(
-                    targetWidth.toInt(),
-                    targetHeight.toInt()
-                ).apply {
-                    setMargins(16, 16, 0, 16)
-                }
-            }
-
-            val currentUri = photoUri
-            binding.linearLayoutCapturedPhotos.addView(imageView)
-            transcribedItems.add(imageView)
-            imageViewToFileMap[imageView] = currentUri
-        }
     }
 
     private fun createImageFile(): File {
@@ -365,15 +387,65 @@ class SpeechTranscribeActivity : AppCompatActivity() {
             setPadding(0, 16, 0, 16)
             this.setText(text)
         }
-        binding.linearLayoutCapturedPhotos.addView(editText)
+        binding.linearLayoutCapturedContent.addView(editText)
         transcribedItems.add(editText)
         fullTranscription += "\n$text"
+    }
+
+    private fun addImageToLayout(uri: Uri) {
+        val imageView = ImageView(this).apply {
+            var bitmap = correctImageOrientation(uri)
+            if (bitmap == null)
+                bitmap = BitmapFactory.decodeStream(contentResolver.openInputStream(uri))
+
+            setImageBitmap(bitmap)
+            scaleType = ImageView.ScaleType.MATRIX
+            val matrix = Matrix()
+
+            val targetWidth = 400f
+            val targetHeight = 400f
+
+            val scaleX = targetWidth / bitmap!!.width
+            val scaleY = targetHeight / bitmap.height
+
+            val scale = minOf(scaleX, scaleY)
+
+            matrix.setScale(scale, scale)
+
+            val dx = (targetWidth - bitmap.width * scale) / 2
+            val dy = (targetHeight - bitmap.height * scale) / 2
+            matrix.postTranslate(dx, dy)
+
+            imageMatrix = matrix
+            layoutParams = LinearLayout.LayoutParams(
+                targetWidth.toInt(),
+                targetHeight.toInt()
+            ).apply {
+                setMargins(16, 16, 0, 16)
+            }
+        }
+
+        binding.linearLayoutCapturedContent.addView(imageView)
+        transcribedItems.add(imageView)
+        imageViewToFileMap[imageView] = uri
+    }
+
+    private fun addVideoToLayout(uri: Uri) {
+        val videoView = VideoView(this).apply {
+            setVideoURI(uri)
+            start()
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+        binding.linearLayoutCapturedContent.addView(videoView)
     }
 
     private fun undoLastItem() {
         if (transcribedItems.isNotEmpty()) {
             val lastView = transcribedItems.removeAt(transcribedItems.size - 1)
-            binding.linearLayoutCapturedPhotos.removeView(lastView)
+            binding.linearLayoutCapturedContent.removeView(lastView)
             if (lastView is EditText) {
                 if (currentSubsection != null) {
                     if (currentSubsection!! > 1) {
@@ -388,6 +460,78 @@ class SpeechTranscribeActivity : AppCompatActivity() {
                 }
                 fullTranscription = fullTranscription.substringBeforeLast('\n')
             }
+        }
+    }
+
+    private fun saveTranscriptionState() {
+        val subfolderName = "transcriptions"
+        val subfolder = File(filesDir, subfolderName)
+        if (!subfolder.exists()) {
+            subfolder.mkdirs()
+        }
+        val file = File(subfolder, "transcription_state.json")
+
+        val items = transcribedItems.mapNotNull { item ->
+            when (item) {
+                is TextView -> TranscriptionItem("text", item.text.toString())
+                is ImageView -> {
+                    val uri = imageViewToFileMap[item]
+                    TranscriptionItem("image", uri.toString())
+                }
+
+                else -> null
+            }
+        }
+
+        val transcriptionState = TranscriptionState(items)
+
+        try {
+            val jsonString = Gson().toJson(transcriptionState)
+            file.writeText(jsonString)
+
+            Toast.makeText(this, "Transcription saved successfully", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Toast.makeText(this, "Failed to save transcription: ${e.message}", Toast.LENGTH_SHORT).show()
+            e.printStackTrace()
+        }
+    }
+
+    private fun loadTranscriptionState() {
+        val subfolderName = "transcriptions"
+        val subfolder = File(filesDir, subfolderName)
+        if (!subfolder.exists()) {
+            subfolder.mkdirs()
+        }
+        val file = File(subfolder, "transcription_state.json")
+
+        if (!file.exists()) {
+            return
+        }
+
+        try {
+            val jsonString = file.readText()
+            val transcriptionState = Gson().fromJson(jsonString, TranscriptionState::class.java)
+
+            binding.linearLayoutCapturedContent.removeAllViews()
+            fullTranscription = ""
+            transcribedItems.clear()
+
+            transcriptionState.items.forEach { item ->
+                when (item.type) {
+                    "text" -> {
+                        addTextToLayout(item.content)
+                    }
+                    "image" -> {
+                        val uri = Uri.parse(item.content)
+                        addImageToLayout(uri)
+                    }
+                }
+            }
+
+            Toast.makeText(this, "Transcription restored successfully", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Toast.makeText(this, "No saved transcription found", Toast.LENGTH_SHORT).show()
+            e.printStackTrace()
         }
     }
 

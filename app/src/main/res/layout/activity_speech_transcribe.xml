@@ -7,19 +7,27 @@
     android:padding="16dp">
 
     <LinearLayout
-        android:layout_width="378dp"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:gravity="center"
+        android:layout_gravity="center"
         android:orientation="horizontal">
+
+        <ImageButton
+            android:id="@+id/buttonSaveTranscription"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:src="@drawable/save"
+            android:contentDescription="Save Transcription"
+            android:layout_gravity="center"
+            android:layout_marginEnd="8dp"
+            android:backgroundTint="#6200ee" />
 
         <Button
             android:id="@+id/buttonStartTranscription"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Start Transcription"
-            android:layout_gravity="center"
-            android:layout_marginTop="16dp" />
+            android:layout_gravity="center"/>
 
         <ImageButton
             android:id="@+id/buttonLoopTranscription"
@@ -29,7 +37,6 @@
             android:contentDescription="Loop Transcription"
             android:layout_gravity="center"
             android:layout_marginStart="8dp"
-            android:layout_marginTop="16dp"
             android:backgroundTint="#6200ee" />
     </LinearLayout>
 
@@ -49,13 +56,33 @@
         android:layout_marginTop="16dp"
         android:textSize="18sp" />
 
-    <Button
-        android:id="@+id/buttonTakePicture"
+    <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Take Picture"
         android:layout_gravity="center"
-        android:layout_marginTop="16dp" />
+        android:orientation="horizontal">
+
+        <ImageButton
+            android:id="@+id/buttonTakePicture"
+            android:layout_width="75dp"
+            android:layout_height="75dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/photo_camera"
+            android:contentDescription="Take Picture"
+            android:backgroundTint="@color/purple_500"
+            android:layout_gravity="center"
+            android:layout_marginEnd="8dp"/>
+
+        <ImageButton
+            android:id="@+id/buttonTakeVideo"
+            android:layout_width="75dp"
+            android:layout_height="75dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/videocam"
+            android:contentDescription="Take Video"
+            android:backgroundTint="@color/purple_500"
+            android:layout_gravity="center" />
+    </LinearLayout>
 
     <ScrollView
         android:layout_width="match_parent"
@@ -63,7 +90,7 @@
         android:layout_weight="1"
         android:layout_marginTop="16dp">
         <LinearLayout
-            android:id="@+id/linearLayoutCapturedPhotos"
+            android:id="@+id/linear_layout_captured_content"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical">
@@ -81,8 +108,7 @@
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:gravity="center"
+        android:layout_gravity="center"
         android:orientation="horizontal">
 
         <Button
