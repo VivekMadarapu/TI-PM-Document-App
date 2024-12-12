@@ -3,11 +3,9 @@ package com.ti.pmdocumentapp
 import android.Manifest
 import android.app.Activity
 import android.content.ActivityNotFoundException
-import android.content.ContentResolver
 import android.content.ContentValues
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.database.Cursor
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
@@ -25,7 +23,6 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
-import android.widget.VideoView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -44,7 +41,6 @@ import org.apache.poi.util.Units
 import org.apache.poi.xwpf.usermodel.XWPFDocument
 import org.apache.poi.xwpf.usermodel.XWPFParagraph
 import org.apache.poi.xwpf.usermodel.XWPFRun
-import org.bouncycastle.crypto.params.Blake3Parameters.context
 import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.FileOutputStream
@@ -430,18 +426,6 @@ class SpeechTranscribeActivity : AppCompatActivity() {
         imageViewToFileMap[imageView] = uri
     }
 
-    private fun addVideoToLayout(uri: Uri) {
-        val videoView = VideoView(this).apply {
-            setVideoURI(uri)
-            start()
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-        }
-        binding.linearLayoutCapturedContent.addView(videoView)
-    }
-
     private fun undoLastItem() {
         if (transcribedItems.isNotEmpty()) {
             val lastView = transcribedItems.removeAt(transcribedItems.size - 1)
@@ -464,12 +448,13 @@ class SpeechTranscribeActivity : AppCompatActivity() {
     }
 
     private fun saveTranscriptionState() {
+        val title = binding.editTextTranscriptName.text.toString()
         val subfolderName = "transcriptions"
         val subfolder = File(filesDir, subfolderName)
         if (!subfolder.exists()) {
             subfolder.mkdirs()
         }
-        val file = File(subfolder, "transcription_state.json")
+        val file = File(subfolder, "${title}.json")
 
         val items = transcribedItems.mapNotNull { item ->
             when (item) {
@@ -497,12 +482,20 @@ class SpeechTranscribeActivity : AppCompatActivity() {
     }
 
     private fun loadTranscriptionState() {
+        val transcriptionName = intent.getStringExtra("transcriptionName") ?: ""
+        if (transcriptionName.isNotEmpty()){
+            binding.editTextTranscriptName.setText(transcriptionName)
+        }
+        if(binding.editTextTranscriptName.text.isEmpty()) {
+            return
+        }
+        val title = binding.editTextTranscriptName.text.toString()
         val subfolderName = "transcriptions"
         val subfolder = File(filesDir, subfolderName)
         if (!subfolder.exists()) {
             subfolder.mkdirs()
         }
-        val file = File(subfolder, "transcription_state.json")
+        val file = File(subfolder, "${title}.json")
 
         if (!file.exists()) {
             return
@@ -536,13 +529,14 @@ class SpeechTranscribeActivity : AppCompatActivity() {
     }
 
     private fun savePdfDocument() {
+        val title = binding.editTextTranscriptName.text.toString().replace(" ", "_")
         val dateFormat = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault())
         val currentDateTime = dateFormat.format(Date())
         val documentsDirectory = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
         if (!documentsDirectory.exists()) {
             documentsDirectory.mkdirs()
         }
-        val pdfPath = File(documentsDirectory, "transcription_$currentDateTime.pdf")
+        val pdfPath = File(documentsDirectory, "transcription_${title}_$currentDateTime.pdf")
         val pdfWriter = PdfWriter(FileOutputStream(pdfPath))
         val pdfDocument = com.itextpdf.kernel.pdf.PdfDocument(pdfWriter)
         val document = Document(pdfDocument)
@@ -595,8 +589,11 @@ class SpeechTranscribeActivity : AppCompatActivity() {
     }
 
     private fun saveWordDocument() {
+        val title = binding.editTextTranscriptName.text.toString().replace(" ", "_")
+        val dateFormat = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault())
+        val currentDateTime = dateFormat.format(Date())
         val documentsDirectory = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
-        val docxFile = File(documentsDirectory, "transcription_${System.currentTimeMillis()}.docx")
+        val docxFile = File(documentsDirectory, "transcription_${title}_${currentDateTime}.docx")
 
         val document = XWPFDocument()
         try {
@@ -655,8 +652,11 @@ class SpeechTranscribeActivity : AppCompatActivity() {
     }
 
     private fun saveTxtFile() {
+        val title = binding.editTextTranscriptName.text.toString().replace(" ", "_")
+        val dateFormat = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault())
+        val currentDateTime = dateFormat.format(Date())
         val documentsDirectory = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
-        val txtFile = File(documentsDirectory, "transcription_${System.currentTimeMillis()}.txt")
+        val txtFile = File(documentsDirectory, "transcription_${title}_${currentDateTime}.txt")
 
         try {
             FileWriter(txtFile).use { writer ->
