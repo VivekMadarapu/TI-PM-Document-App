@@ -65,12 +65,31 @@ class SpeechTranscribeActivity : AppCompatActivity() {
     private val imageViewToFileMap = mutableMapOf<ImageView, Uri>()
     private var photoUri: Uri = Uri.EMPTY
     private var videoUri: Uri = Uri.EMPTY
+    private var videoName: String = ""
     private val TAG = "SpeechTranscribeActivity"
 
     data class TranscriptionItem(
         val type: String,
-        val content: String
-    )
+        val content: Array<String>
+    ) {
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (javaClass != other?.javaClass) return false
+
+            other as TranscriptionItem
+
+            if (type != other.type) return false
+            if (!content.contentEquals(other.content)) return false
+
+            return true
+        }
+
+        override fun hashCode(): Int {
+            var result = type.hashCode()
+            result = 31 * result + content.contentHashCode()
+            return result
+        }
+    }
 
     data class TranscriptionState(
         val items: List<TranscriptionItem>
@@ -287,6 +306,7 @@ class SpeechTranscribeActivity : AppCompatActivity() {
         if (result.resultCode == Activity.RESULT_OK) {
             if (videoUri != Uri.EMPTY){
                 Toast.makeText(this, "Video saved to: $videoUri", Toast.LENGTH_SHORT).show()
+                addVideoToLayout(videoUri, videoName)
             } else {
                 Toast.makeText(this, "Failed to save video", Toast.LENGTH_SHORT).show()
             }
@@ -303,11 +323,24 @@ class SpeechTranscribeActivity : AppCompatActivity() {
                 put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/PMDocumentVideos")
             }
             videoUri = contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, contentValues)!!
+            videoName = "video_${timestamp}.mp4"
             videoCaptureIntent.putExtra(MediaStore.EXTRA_OUTPUT, videoUri)
             videoCaptureIntent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_READ_URI_PERMISSION)
             videoCaptureLauncher.launch(videoCaptureIntent)
         } catch (e: ActivityNotFoundException) {
             Toast.makeText(this, "No camera app available", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun openVideoInPlayer(videoUri: Uri) {
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(videoUri, "video/*")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        try {
+            startActivity(intent)
+        } catch (e: ActivityNotFoundException) {
+            Toast.makeText(this, "No video player app found", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -426,6 +459,26 @@ class SpeechTranscribeActivity : AppCompatActivity() {
         imageViewToFileMap[imageView] = uri
     }
 
+    private fun addVideoToLayout(videoUri: Uri, videoName: String) {
+        val textView = TextView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            textSize = 16f
+            setPadding(0, 16, 0, 16)
+            text = videoName
+            tag = videoUri
+            setTextColor(ContextCompat.getColor(this@SpeechTranscribeActivity, R.color.purple_200))
+            setOnClickListener {
+                openVideoInPlayer(videoUri)
+            }
+        }
+        binding.linearLayoutCapturedContent.addView(textView)
+        transcribedItems.add(textView)
+    }
+
+
     private fun undoLastItem() {
         if (transcribedItems.isNotEmpty()) {
             val lastView = transcribedItems.removeAt(transcribedItems.size - 1)
@@ -458,12 +511,12 @@ class SpeechTranscribeActivity : AppCompatActivity() {
 
         val items = transcribedItems.mapNotNull { item ->
             when (item) {
-                is TextView -> TranscriptionItem("text", item.text.toString())
+                is EditText -> TranscriptionItem("text", arrayOf(item.text.toString()))
                 is ImageView -> {
                     val uri = imageViewToFileMap[item]
-                    TranscriptionItem("image", uri.toString())
+                    TranscriptionItem("image", arrayOf(uri.toString()))
                 }
-
+                is TextView -> TranscriptionItem("video", arrayOf(item.text.toString(), item.tag.toString()))
                 else -> null
             }
         }
@@ -512,11 +565,15 @@ class SpeechTranscribeActivity : AppCompatActivity() {
             transcriptionState.items.forEach { item ->
                 when (item.type) {
                     "text" -> {
-                        addTextToLayout(item.content)
+                        addTextToLayout(item.content[0])
                     }
                     "image" -> {
-                        val uri = Uri.parse(item.content)
+                        val uri = Uri.parse(item.content[0])
                         addImageToLayout(uri)
+                    }
+                    "video" -> {
+                        val uri = Uri.parse(item.content[1])
+                        addVideoToLayout(uri, item.content[0])
                     }
                 }
             }
