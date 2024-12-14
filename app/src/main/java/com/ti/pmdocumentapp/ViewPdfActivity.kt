@@ -109,8 +109,8 @@ class ViewPdfActivity : AppCompatActivity() {
             setImageDrawable(ContextCompat.getDrawable(this@ViewPdfActivity, android.R.drawable.checkbox_on_background))
             scaleType = ImageView.ScaleType.FIT_CENTER
             layoutParams = binding.root.layoutParams.apply {
-                width = resources.displayMetrics.widthPixels
-                height = resources.displayMetrics.heightPixels
+                width = resources.displayMetrics.widthPixels/2
+                height = resources.displayMetrics.heightPixels/2
             }
         }
         binding.root.addView(checkMark)

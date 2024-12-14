@@ -186,7 +186,7 @@ class SpeechTranscribeActivity : AppCompatActivity() {
 
         override fun onResults(results: Bundle?) {
             val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-            val transcribedText = matches?.get(0)?.let { processTranscribedText(it) } ?: ""
+            val transcribedText = matches?.get(0)?.let { processTranscribedText(correctGrammar(it)) } ?: ""
             if (transcribedText.split(" ")[0] != "action:") {
                 addTextToLayout(transcribedText)
                 binding.textViewTranscriptionStatus.text = "Transcription Recorded"
@@ -204,11 +204,25 @@ class SpeechTranscribeActivity : AppCompatActivity() {
 
         override fun onPartialResults(partialResults: Bundle?) {
             val partialMatch = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-            val partialText = partialMatch?.get(0) ?: ""
+            val partialText = partialMatch?.get(0)?.let { correctGrammar(it) } ?: ""
             binding.textViewCurrentText.text = partialText
         }
 
         override fun onEvent(eventType: Int, params: Bundle?) {}
+    }
+
+    private fun correctGrammar(inputText: String): String {
+        val words = inputText.split(" ").toMutableList()
+
+        if (words.isNotEmpty()) {
+            words[0] = words[0].replaceFirstChar { it.uppercase() }
+        }
+
+        if (words.isNotEmpty() && !words.last().matches(Regex(".*[.!?]$"))) {
+            words.add(".")
+        }
+
+        return words.joinToString(" ")
     }
 
     private fun initializeSpeechRecognizer() {
@@ -242,6 +256,11 @@ class SpeechTranscribeActivity : AppCompatActivity() {
                 undoLastItem()
                 "action: undo"
             }
+            text.contains("end transcription", ignoreCase = true) -> {
+                binding.buttonLoopTranscription.backgroundTintList = ContextCompat.getColorStateList(this, R.color.purple_500)
+                continuousSpeechRecognition = false
+                "action: end transcription"
+            }
             text.contains("capture image", ignoreCase = true) -> {
                 if (checkPermission(Manifest.permission.CAMERA)) {
                     dispatchTakePictureIntent()
@@ -249,6 +268,14 @@ class SpeechTranscribeActivity : AppCompatActivity() {
                     checkAndRequestPermissions(arrayOf(Manifest.permission.CAMERA))
                 }
                 "action: capture image"
+            }
+            text.contains("capture video", ignoreCase = true) -> {
+                if (checkPermission(Manifest.permission.CAMERA)) {
+                    openVideoCapture()
+                } else {
+                    checkAndRequestPermissions(arrayOf(Manifest.permission.CAMERA))
+                }
+                "action: capture video"
             }
             text.contains("save pdf", ignoreCase = true) -> {
                 savePdfDocument()
